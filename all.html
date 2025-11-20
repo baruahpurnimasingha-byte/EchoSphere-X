@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>EchoSphere X — All-in-One Prototype</title>
+<style>
+  :root{
+    --bg1:#03030a; --bg2:#071022; --accent:#00bfff; --accent2:#ff6bb0;
+    --glass: rgba(255,255,255,0.04);
+    --panel: rgba(255,255,255,0.03);
+  }
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;color:#eaf7ff;background:linear-gradient(180deg,var(--bg1),var(--bg2));overflow:hidden}
+  canvas#bg{position:fixed;inset:0;z-index:0;display:block}
+  /* Top bar */
+  header.topbar{position:fixed;top:12px;left:12px;right:12px;height:60px;z-index:60;display:flex;align-items:center;gap:12px;padding:8px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,0.04)}
+  .app-icon{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:800;color:#001}
+  .app-title{font-size:18px;font-weight:700}
+  .top-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+  .avatar{width:36px;height:36px;border-radius:10px;background:linear-gradient(180deg,#ffffff11,#00000022);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff}
+  /* Sidebar */
+  nav.sidebar{position:fixed;left:12px;top:84px;bottom:84px;width:88px;border-radius:14px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:10px;display:flex;flex-direction:column;gap:10px;align-items:center;z-index:55;border:1px solid rgba(255,255,255,0.03)}
+  .sb-btn{width:56px;height:56px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.02);cursor:pointer;color:#dff6ff;border:1px solid rgba(255,255,255,0.03)}
+  /* hologram sphere wrapper */
+  .center-stage{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;display:flex;align-items:center;justify-content:center;pointer-events:none}
+  /* hologram ball (CSS + canvas) */
+  .holo-wrap{width:420px;height:420px;pointer-events:auto;display:flex;align-items:center;justify-content:center;position:relative}
+  .holo-ball{width:260px;height:260px;border-radius:50%;background:radial-gradient(circle at 30% 20%, rgba(255,255,255,0.08), rgba(0,0,0,0)), linear-gradient(180deg, rgba(0,191,255,0.12), rgba(255,105,180,0.05));box-shadow:0 30px 80px rgba(0,183,255,0.06), inset 0 -6px 30px rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);transform:translateZ(0);transition:transform 300ms cubic-bezier(.2,.9,.25,1)}
+  .holo-ring{position:absolute;width:360px;height:360px;border-radius:50%;border:1px dashed rgba(255,255,255,0.05);box-shadow:0 0 40px rgba(0,191,255,0.04);transform:rotateX(75deg) translateZ(-60px);opacity:0.9;pointer-events:none}
+  .holo-pulse{position:absolute;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle at 50% 50%, rgba(0,191,255,0.08), transparent 30%);filter:blur(18px);pointer-events:none}
+  .holo-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;pointer-events:none}
+  .title-large{font-size:28px;font-weight:800;letter-spacing:0.6px;text-align:center}
+  .tagline{font-size:13px;color:rgba(255,255,255,0.72);margin-top:6px;text-align:center}
+  /* Enter button */
+  .enter-btn{pointer-events:auto;margin-top:14px;padding:10px 18px;border-radius:14px;border:0;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#001;font-weight:800;cursor:pointer;box-shadow:0 12px 40px rgba(0,183,255,0.12)}
+  /* bottom nav */
+  footer.bottom-nav{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:70;display:flex;gap:12px;padding:8px;border-radius:18px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.03)}
+  .nav-item{padding:10px 14px;border-radius:12px;background:rgba(255,255,255,0.02);cursor:pointer;color:#dff6ff;font-weight:700}
+  .nav-item.active{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#001}
+  /* panels (screens) */
+  .panel-screen{position:fixed;right:18px;top:84px;bottom:84px;width:380px;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.03);padding:12px;overflow:auto;z-index:50;pointer-events:auto}
+  .hidden{display:none}
+  .panel-title{font-weight:800;color:var(--accent);margin-bottom:8px}
+  /* chat UI */
+  .chat-bubble{padding:10px;border-radius:12px;margin-bottom:8px;max-width:86%;line-height:1.3}
+  .from-me{background:linear-gradient(90deg, rgba(0,191,255,0.12), rgba(0,191,255,0.06));align-self:flex-end}
+  .from-ai{background:linear-gradient(90deg, rgba(255,105,180,0.06), rgba(255,105,180,0.03));align-self:flex-start}
+  .chat-list{display:flex;flex-direction:column}
+  .chat-input-row{display:flex;gap:8px;margin-top:8px}
+  .chat-input{flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:rgba(0,0,0,0.45);color:#fff}
+  .mic-btn{width:44px;border-radius:10px;background:linear-gradient(90deg,var(--accent),var(--accent2));border:none;color:#001;font-weight:900;cursor:pointer}
+  .typing{font-size:13px;color:rgba(255,255,255,0.7);margin-top:6px}
+  /* vault list */
+  .vault-item{padding:10px;border-radius:10px;background:rgba(255,255,255,0.02);margin-bottom:8px}
+  /* settings */
+  .setting-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px dashed rgba(255,255,255,0.02)}
+  /* small responsive */
+  @media(max-width:900px){
+    nav.sidebar{display:none}
+    .panel-screen{left:10px;right:10px;top:84px;width:auto;bottom:140px}
+    .holo-wrap{width:320px;height:320px}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+
+<header class="topbar">
+  <div class="app-icon">EX</div>
+  <div class="app-title">EchoSphere X <div style="font-size:11px;color:rgba(255,255,255,0.6);font-weight:600">A universe where imagination begins</div></div>
+  <div class="top-actions">
+    <div style="font-size:12px;color:rgba(255,255,255,0.6)">Mode:</div>
+    <select id="personality" style="padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#fff;outline:none">
+      <option>Creative</option><option>Analytical</option><option>Simple</option><option>Mentor</option><option>Hyper</option>
+    </select>
+    <div class="avatar" id="avatar">M</div>
+  </div>
+</header>
+
+<nav class="sidebar" id="sidebar">
+  <div class="sb-btn" data-screen="home" title="Home">H</div>
+  <div class="sb-btn" data-screen="chat" title="Chat">💬</div>
+  <div class="sb-btn" data-screen="vault" title="Vault">🗂</div>
+  <div class="sb-btn" data-screen="settings" title="Settings">⚙️</div>
+</nav>
+
+<div class="center-stage">
+  <div class="holo-wrap" id="holoWrap">
+    <div class="holo-pulse"></div>
+    <div class="holo-ring"></div>
+    <div class="holo-ball" id="holoBall"></div>
+    <div class="holo-overlay">
+      <div class="title-large">EchoSphere X</div>
+      <div class="tagline">A universe where imagination begins</div>
+      <button class="enter-btn" id="enter">Enter EchoSphere X</button>
+    </div>
+  </div>
+</div>
+
+<!-- Panels: Chat, Vault, Settings (hidden initially) -->
+<div class="panel-screen hidden" id="chatPanel" aria-hidden="true">
+  <div class="panel-title">AI Chat — Echo Companion</div>
+  <div class="chat-list" id="chatList" style="min-height:320px"></div>
+  <div class="typing" id="typing" style="display:none">EchoSphere is typing...</div>
+  <div class="chat-input-row">
+    <input id="chatInput" class="chat-input" placeholder="Ask EchoSphere..." />
+    <button id="micBtn" class="mic-btn" title="Voice input">🎤</button>
+    <button id="sendBtn" class="mic-btn" style="background:#00ff9f">Send</button>
+  </div>
+  <div style="margin-top:8px;font-size:12px;color:rgba(255,255,255,0.6)">Commands: <code>/reverse</code>, <code>/analyze</code>, <code>/scan</code>, <code>/synonyms</code></div>
+</div>
+
+<div class="panel-screen hidden" id="vaultPanel" aria-hidden="true" style="right:420px">
+  <div class="panel-title">Idea Vault</div>
+  <div id="vaultList" style="min-height:380px"></div>
+</div>
+
+<div class="panel-screen hidden" id="settingsPanel" aria-hidden="true" style="right:420px">
+  <div class="panel-title">Settings & Prototype Controls</div>
+  <div class="setting-row"><div>Save chat history</div><div><input id="saveToggle" type="checkbox" /></div></div>
+  <div class="setting-row"><div>Show orbit nodes</div><div><input id="nodesToggle" type="checkbox" checked /></div></div>
+  <div style="margin-top:8px;font-size:13px;color:rgba(255,255,255,0.7)">Local prototype only. No external APIs required. Use voice (if Chrome) for mic input.</div>
+</div>
+
+<footer class="bottom-nav">
+  <div class="nav-item active" data-screen="home">Home</div>
+  <div class="nav-item" data-screen="chat">Chat</div>
+  <div class="nav-item" data-screen="vault">Vault</div>
+  <div class="nav-item" data-screen="settings">Settings</div>
+  <div style="width:14px"></div>
+  <div class="nav-item" id="resetBtn" style="background:rgba(255,255,255,0.02)">Reset Intro</div>
+</footer>
+
+<script>
+/* -------------------------
+   Background particle canvas
+   ------------------------- */
+const bg = document.getElementById('bg');
+const dpi = window.devicePixelRatio || 1;
+bg.width = innerWidth * dpi; bg.height = innerHeight * dpi;
+bg.style.width = innerWidth + 'px'; bg.style.height = innerHeight + 'px';
+const g = bg.getContext('2d');
+let particles = [];
+const PCOUNT = Math.floor((innerWidth+innerHeight)/12);
+function rand(a,b){ return a + Math.random()*(b-a); }
+for(let i=0;i<PCOUNT;i++){
+  particles.push({x:Math.random()*innerWidth, y:Math.random()*innerHeight, vx:rand(-0.1,0.1), vy:rand(-0.05,0.05), r:rand(0.3,1.6), hue:rand(180,300)});
+}
+function drawBG(){
+  g.clearRect(0,0,bg.width,bg.height);
+  // subtle gradient overlay
+  const grad = g.createLinearGradient(0,0,bg.width, bg.height);
+  grad.addColorStop(0, 'rgba(2,3,7,0.35)'); grad.addColorStop(1, 'rgba(6,9,18,0.6)');
+  g.fillStyle = grad; g.fillRect(0,0,bg.width,bg.height);
+  // particles
+  for(let p of particles){
+    p.x += p.vx * 1.2; p.y += p.vy * 1.0;
+    if(p.x < -10) p.x = innerWidth + 10; if(p.x > innerWidth + 10) p.x = -10;
+    if(p.y < -10) p.y = innerHeight + 10; if(p.y > innerHeight +10) p.y = -10;
+    g.beginPath();
+    const rg = g.createRadialGradient(p.x*dpi, p.y*dpi, 0, p.x*dpi, p.y*dpi, p.r*6*dpi);
+    rg.addColorStop(0, `hsla(${p.hue},90%,70%,0.12)`); rg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = rg; g.arc(p.x*dpi, p.y*dpi, p.r*6*dpi, 0, Math.PI*2); g.fill();
+  }
+  requestAnimationFrame(drawBG);
+}
+drawBG();
+
+/* -------------------------
+   Hologram sphere simple rotation visual (CSS transform + tiny canvas highlight)
+   ------------------------- */
+const holoBall = document.getElementById('holoBall');
+let holoRotate = 0;
+function holoPulse(state){
+  // state: 'idle' | 'listening' | 'processing' | 'responding'
+  if(state === 'listening') holoBall.style.transform = 'scale(1.08) translateY(-6px)';
+  else if(state === 'processing') holoBall.style.transform = 'scale(0.98) translateY(2px)';
+  else if(state === 'responding') holoBall.style.transform = 'scale(1.12) translateY(-10px)';
+  else holoBall.style.transform = 'scale(1) translateY(0)';
+}
+
+/* subtle slow rotation */
+setInterval(()=>{ holoRotate += 0.6; holoBall.style.boxShadow = `0 40px 80px rgba(0,183,255,0.04), inset -10px -6px 40px rgba(255,255,255,0.02)`; }, 2000);
+
+/* -------------------------
+   Basic app state & navigation
+   ------------------------- */
+const screens = { home:true, chat:false, vault:false, settings:false };
+const navItems = document.querySelectorAll('.nav-item');
+const sbButtons = document.querySelectorAll('.sb-btn');
+function setScreen(target){
+  // hide panels
+  document.getElementById('chatPanel').classList.add('hidden');
+  document.getElementById('vaultPanel').classList.add('hidden');
+  document.getElementById('settingsPanel').classList.add('hidden');
+  // show
+  if(target === 'chat') document.getElementById('chatPanel').classList.remove('hidden');
+  if(target === 'vault') document.getElementById('vaultPanel').classList.remove('hidden');
+  if(target === 'settings') document.getElementById('settingsPanel').classList.remove('hidden');
+  navItems.forEach(n=> n.classList.toggle('active', n.dataset.screen===target));
+  sbButtons.forEach(b=> b.classList.toggle('active', b.dataset.screen===target));
+}
+document.querySelectorAll('.nav-item').forEach(it=>it.addEventListener('click', ()=> setScreen(it.dataset.screen)));
+sbButtons.forEach(b=> b.addEventListener('click', ()=> setScreen(b.dataset.screen)));
+
+/* Enter button => dimension-shift into login modal */
+const enterBtn = document.getElementById('enter');
+const loginPanel = document.getElementById('chatPanel'); // chat panel will act later
+const loginModal = document.getElementById('chatPanel'); // not using a modal to keep simple
+enterBtn.addEventListener('click', ()=> {
+  // visual pop then open chat
+  holoPulse('processing');
+  setTimeout(()=>{ holoPulse('responding'); setScreen('chat'); }, 800);
+  setTimeout(()=> holoPulse('idle'), 1600);
+});
+
+/* bottom reset */
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  // return to intro look (simulate)
+  setScreen('home');
+  holoPulse('idle');
+  // small camera-like effect by flashing panels
+  document.querySelectorAll('.panel-screen').forEach(p=>{ p.style.opacity=0; setTimeout(()=> p.style.opacity=1, 400) });
+});
+
+/* -------------------------
+   Chat / AI (offline mini-AI + commands)
+   ------------------------- */
+const chatList = document.getElementById('chatList');
+const chatInput = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+const micBtn = document.getElementById('micBtn');
+const typingIndicator = document.getElementById('typing');
+const vaultListEl = document.getElementById('vaultList');
+const personality = document.getElementById('personality');
+
+function appendBubble(who, text){
+  const el = document.createElement('div');
+  el.className = 'chat-bubble ' + (who==='You' ? 'from-me' : 'from-ai');
+  el.innerHTML = `<strong style="display:block;color:var(--accent);font-weight:700">${who}</strong><div style="margin-top:6px">${text}</div>`;
+  chatList.appendChild(el);
+  chatList.scrollTop = chatList.scrollHeight;
+}
+
+function simulateTyping(cb, delay=800){
+  typingIndicator.style.display='block';
+  setTimeout(()=>{ typingIndicator.style.display='none'; cb(); }, delay);
+}
+
+function personalityStyle(text, mode){
+  if(mode === 'Creative') return text + ' ✨';
+  if(mode === 'Analytical') return 'Analysis: ' + text;
+  if(mode === 'Simple') return 'In short: ' + text;
+  if(mode === 'Mentor') return 'Advice: ' + text;
+  if(mode === 'Hyper') return text.toUpperCase();
+  return text;
+}
+
+/* commands */
+function handleCommand(cmd, rest){
+  cmd = cmd.toLowerCase();
+  if(cmd === '/reverse') return rest.split('').reverse().join('');
+  if(cmd === '/scan') return `Scanned items from "${rest}". Key takeaway: ${rest.split(' ').slice(0,3).join(' ')}...`;
+  if(cmd === '/analyze') return `Analysis for "${rest}": pros, cons, next steps — (mocked)`;
+  if(cmd === '/synonyms') return rest.split(' ').map(w=> w + ' (alt)').join(', ');
+  return null;
+}
+
+/* Generate offline reply (mini-AI) */
+function generateReply(input){
+  // commands
+  if(input.trim().startsWith('/')){
+    const parts = input.trim().split(' ');
+    const cmd = parts[0];
+    const rest = parts.slice(1).join(' ');
+    const res = handleCommand(cmd, rest);
+    if(res) return res;
+  }
+  // simple heuristics
+  const lower = input.toLowerCase();
+  if(lower.includes('idea') || lower.includes('grow') || lower.includes('seed')){
+    return `Here are 3 quick branches for "${input}": 1) Feature idea; 2) Target user; 3) Quick prototype plan.`;
+  }
+  if(lower.includes('how') || lower.includes('why') || lower.includes('what')){
+    return `Step-by-step for "${input}": 1) Define; 2) Prototype; 3) Test.`;
+  }
+  // fallback: playful remix
+  return input.split('').reverse().join(''); // playful fallback for demo
+}
+
+/* save & load chat history */
+const SAVE_KEY = 'echosphere_chat_v1';
+function saveChatHistory(){
+  const items = [];
+  document.querySelectorAll('.chat-bubble').forEach(b=>{
+    const who = b.querySelector('strong').innerText;
+    const txt = b.querySelector('div:nth-child(2)').innerText;
+    items.push({who, txt});
+  });
+  localStorage.setItem(SAVE_KEY, JSON.stringify(items));
+}
+function loadChatHistory(){
+  const raw = localStorage.getItem(SAVE_KEY);
+  if(!raw) return;
+  const arr = JSON.parse(raw);
+  chatList.innerHTML = '';
+  for(const it of arr) appendBubble(it.who, it.txt);
+}
+loadChatHistory();
+
+/* vault load */
+function loadVault(){
+  const raw = localStorage.getItem('echosphere_vault_v1') || '[]';
+  const arr = JSON.parse(raw);
+  vaultListEl.innerHTML = '';
+  for(const v of arr){
+    const el = document.createElement('div'); el.className='vault-item'; el.innerHTML = `<strong>${v.title}</strong><div style="font-size:12px;color:rgba(255,255,255,0.6)">${new Date(v.time).toLocaleString()}</div>`;
+    vaultListEl.appendChild(el);
+  }
+}
+loadVault();
+
+/* send flow */
+async function sendChat(){
+  const txt = chatInput.value.trim(); if(!txt) return;
+  appendBubble('You', txt); chatInput.value = '';
+  // show immediate feedback
+  holoPulse('listening');
+  simulateTyping(()=> {
+    const p = personality.value;
+    let reply = generateReply(txt);
+    reply = personalityStyle(reply, p);
+    appendBubble('EchoSphere', reply);
+    holoPulse('responding');
+    if(document.getElementById('saveToggle').checked) saveChatHistory();
+  }, 900);
+}
+
+/* voice recognition */
+let recognition;
+if('webkitSpeechRecognition' in window){
+  recognition = new webkitSpeechRecognition();
+  recognition.continuous = false; recognition.interimResults = false;
+  recognition.onstart = ()=> { holoPulse('listening'); micBtn.innerText='🎙️'; }
+  recognition.onend = ()=> { holoPulse('idle'); micBtn.innerText='🎤'; }
+  recognition.onresult = (e)=> {
+    const text = e.results[0][0].transcript;
+    chatInput.value = text; sendChat();
+  };
+} else {
+  micBtn.title = 'Voice not supported (use Chrome)';
+}
+sendBtn.addEventListener('click', sendChat);
+micBtn.addEventListener('click', ()=>{ if(recognition) recognition.start(); else alert('Use Chrome for voice.'); });
+
+/* Grow idea => save to vault */
+function growIdeaFromChat(seed){
+  const vault = JSON.parse(localStorage.getItem('echosphere_vault_v1') || '[]');
+  vault.unshift({title: seed, time: Date.now()});
+  localStorage.setItem('echosphere_vault_v1', JSON.stringify(vault));
+  loadVault();
+  appendBubble('EchoSphere', `Idea "${seed}" saved to Vault.`);
+}
+
+/* keyboard enter */
+chatInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') sendChat(); });
+
+/* UI toggles */
+document.getElementById('saveToggle').addEventListener('change', (e)=>{ if(e.target.checked) saveChatHistory(); });
+
+/* nodes toggle (visual effect: show more pulsing) */
+document.getElementById('nodesToggle').addEventListener('change', (e)=>{ /* demo: change ring opacity */ document.querySelector('.holo-ring').style.opacity = e.target.checked ? 0.9 : 0.05; });
+
+/* personality change effect */
+personality.addEventListener('change', ()=>{ const p = personality.value; document.querySelector('.app-title').style.opacity = 0.95; });
+
+/* quick demo: clicking vault save from chat (double click) */
+chatList.addEventListener('dblclick', (ev)=>{
+  const node = ev.target.closest('.chat-bubble'); if(!node) return;
+  const who = node.querySelector('strong').innerText; if(who === 'EchoSphere'){
+    const text = node.querySelector('div:nth-child(2)').innerText;
+    growIdeaFromChat(text.slice(0,120));
+  }
+});
+
+/* initial screen */
+setScreen('home');
+
+/* small dimension-shift pseudo animation when panels appear */
+const panels = document.querySelectorAll('.panel-screen');
+panels.forEach(p => { p.style.transform = 'translateY(8px) scale(0.98)'; p.style.transition = 'all 420ms cubic-bezier(.2,.9,.25,1)'; setTimeout(()=> p.style.transform='translateY(0) scale(1)', 40); });
+
+/* ensure canvas resizes on resize */
+window.addEventListener('resize', ()=>{
+  bg.width = innerWidth * dpi; bg.height = innerHeight * dpi;
+  bg.style.width = innerWidth + 'px'; bg.style.height = innerHeight + 'px';
+});
+
+/* small accessibility: keyboard nav */
+document.addEventListener('keydown', (e)=>{
+  if(e.key === '1') setScreen('home');
+  if(e.key === '2') setScreen('chat');
+  if(e.key === '3') setScreen('vault');
+  if(e.key === '4') setScreen('settings');
+});
+
+/* Save chat on unload if enabled */
+window.addEventListener('beforeunload', ()=>{ if(document.getElementById('saveToggle').checked) saveChatHistory(); });
+
+</script>
+</body>
+</html>
