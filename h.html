@@ -1,0 +1,754 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>EchoSphere X — Final Prototype (Orb + Backend)</title>
+<style>
+  :root{
+    --bg-dark:#04050a;
+    --bg-light:#f5f7fb;
+    --neon:#001428;
+    --accent1:#00d9ff;
+    --accent2:#ff6bb0;
+    --glass: rgba(255,255,255,0.04);
+  }
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:var(--bg-dark);color:#eaf7ff;overflow:hidden}
+  .screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:all .6s cubic-bezier(.2,.95,.25,1)}
+  .hidden{display:none}
+  .card{width:92%;max-width:760px;padding:20px;border-radius:14px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));box-shadow:0 20px 60px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.03)}
+  h1,h2{margin:0}
+  p{margin:8px 0 0}
+
+  /* orb & shader canvas */
+  #orbCanvas { width: 420px; height: 420px; border-radius: 50%; cursor:pointer; display:block; }
+  .orbWrap { width:420px; height:420px; display:flex; align-items:center; justify-content:center; position:relative; }
+  .orbLabel { position:absolute; bottom:18px; color: #001; font-weight:800; background:linear-gradient(90deg,var(--accent1),var(--accent2)); padding:8px 12px; border-radius:12px; }
+
+  /* explosion */
+  .explodeScale { animation: explodeScale .55s forwards; }
+  @keyframes explodeScale { from { transform: scale(1); opacity:1 } to { transform: scale(6); opacity:0 } }
+
+  /* login */
+  .login-grid{display:flex;flex-direction:column;gap:12px}
+  input[type=text], input[type=email], input[type=password], textarea{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:rgba(0,0,0,0.35);color:#fff;outline:none}
+  .btn{padding:10px 14px;border-radius:10px;border:0;background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#001;font-weight:800;cursor:pointer}
+  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:inherit}
+
+  /* app layout */
+  .app-header{position:fixed;left:18px;right:18px;top:12px;height:56px;display:flex;align-items:center;gap:10px;z-index:40}
+  .app-title{font-weight:800;font-size:18px}
+  .top-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+  .theme-select{padding:8px;border-radius:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.03);color:inherit}
+
+  .main-grid{display:grid;grid-template-columns:1fr 420px;gap:18px;padding:100px 28px 28px 28px;height:100%;box-sizing:border-box}
+  .left-col{overflow:auto;padding-right:8px}
+  .right-col{position:relative}
+
+  /* chat */
+  .chat-box{height:420px;border-radius:12px;padding:12px;background:rgba(255,255,255,0.02);display:flex;flex-direction:column}
+  .messages{flex:1;overflow:auto;display:flex;flex-direction:column;gap:8px}
+  .bubble{padding:10px;border-radius:10px;max-width:86%}
+  .me{align-self:flex-end;background:linear-gradient(90deg, rgba(0,191,255,0.08), rgba(0,191,255,0.04))}
+  .ai{align-self:flex-start;background:linear-gradient(90deg, rgba(255,105,180,0.06), rgba(255,105,180,0.03))}
+
+  /* floating corner deck */
+  .corner-deck {
+    position:fixed;
+    right:22px;
+    bottom:22px;
+    z-index:120;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:10px;
+  }
+  .deck-toggle {
+    width:64px;height:64px;border-radius:50%;background:linear-gradient(90deg,var(--accent1),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:900;cursor:pointer;box-shadow:0 12px 40px rgba(0,183,255,0.12);
+  }
+  .deck-menu {
+    display:flex;flex-direction:column;gap:10px;margin-bottom:6px;transform-origin:100% 100%;transition:transform .34s cubic-bezier(.2,.9,.2,1),opacity .28s;
+    opacity:0; transform:translateY(8px) scale(.9);
+  }
+  .deck-menu.open { opacity:1; transform:translateY(0) scale(1); }
+  .deck-item {
+    width:220px;padding:12px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));backdrop-filter:blur(6px);cursor:pointer;border:1px solid rgba(255,255,255,0.03);
+    color:inherit;
+  }
+
+  /* settings panel small */
+  .settings-panel{position:fixed;left:50%;top:60px;transform:translateX(-50%);width:420px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:12px;z-index:80;display:none}
+  .settings-panel.open{display:block}
+
+  /* small responsive */
+  @media(max-width:1000px){.main-grid{grid-template-columns:1fr;}.right-col{order:2}}
+</style>
+</head>
+<body>
+
+<!-- SPLASH with WebGL orb -->
+<div id="splash" class="screen">
+  <div class="card" style="text-align:center;max-width:920px">
+    <h1 style="font-size:32px">EchoSphere X</h1>
+    <p style="margin-top:8px">A universe where imagination begins — hybrid UI + AI. Tap the orb to login then enter the full app.</p>
+
+    <div style="display:flex;justify-content:center;margin-top:20px">
+      <div class="orbWrap">
+        <canvas id="orbCanvas" width="420" height="420" title="Tap to enter"></canvas>
+        <div class="orbLabel">Enter EchoSphere X</div>
+      </div>
+    </div>
+
+    <div style="margin-top:18px;color:rgba(255,255,255,0.7);font-size:13px;max-width:620px;margin-left:auto;margin-right:auto">
+      <strong>Future improvements & upcoming models:</strong>
+      <ul style="text-align:left;margin-top:8px">
+        <li>Full ChatGPT integration via secure backend (provided)</li>
+        <li>AR visualization & idea marketplace</li>
+        <li>Voice-first assistant with live orb visual</li>
+        <li>Smart task automation & code-generation modes</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="login" class="screen hidden">
+  <div class="card login-grid" style="max-width:520px">
+    <h2>Login to EchoSphere X</h2>
+    <div id="loginHint" style="color:rgba(255,255,255,0.8)">Name and Email required</div>
+    <input id="nameField" type="text" placeholder="Full name" />
+    <input id="emailField" type="email" placeholder="Email address" />
+    <input id="passField" type="password" placeholder="Password (demo)" />
+    <div style="display:flex;gap:10px">
+      <button id="loginBtn" class="btn">Continue</button>
+      <button id="loginCancel" class="btn ghost">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- INTRO / WELCOME (NEW: appears after login, before app) -->
+<div id="intro" class="screen hidden">
+  <div class="card" style="max-width:920px;text-align:center">
+    <h1 style="font-size:28px">Welcome to EchoSphere X</h1>
+    <p style="opacity:0.9;margin-top:10px">EchoSphere X is an adaptive AI-powered idea companion: think, create, connect, and solve — all in one evolving ecosystem.</p>
+    <p style="margin-top:12px;color:rgba(255,255,255,0.75);text-align:left;max-width:640px;margin-left:auto;margin-right:auto">
+      <strong>What this prototype includes:</strong>
+      <ul>
+        <li>Hybrid AI (online via local proxy or offline fallback)</li>
+        <li>Idea Garden, AI Chat, Personality Modes, Idea Vault</li>
+        <li>Holographic orb, floating corner deck, theme & color controls</li>
+      </ul>
+    </p>
+    <div style="margin-top:18px;display:flex;gap:12px;justify-content:center">
+      <button id="enterAppBtn" class="btn">Enter App</button>
+      <button id="skipIntro" class="btn ghost">Skip & Enter</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div id="loading" class="screen hidden">
+  <div class="card">
+    <h2>Entering EchoSphere X…</h2>
+    <p style="opacity:0.8;margin-top:8px">Preparing your universe…</p>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="screen hidden" style="align-items:stretch;justify-content:flex-start;overflow:hidden">
+  <div class="app-header">
+    <div class="app-title">EchoSphere X — <span id="userGreeting">Welcome</span></div>
+    <div class="top-actions">
+      <select id="themeSel" class="theme-select" title="Theme">
+        <option value="dark">Dark</option>
+        <option value="light">Light</option>
+        <option value="neon">Neon</option>
+      </select>
+      <div id="profileBtn" class="btn ghost" style="padding:8px 10px">Profile</div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div class="left-col">
+      <div class="card">
+        <h2>Home Dashboard</h2>
+        <p style="color:rgba(255,255,255,0.75)">Welcome back, <strong id="userNameDisplay"></strong></p>
+        <div style="display:flex;gap:12px;margin-top:12px">
+          <button class="btn" id="toIdea">Idea Garden</button>
+          <button class="btn" id="toChat">AI Chat</button>
+          <button class="btn ghost" id="toProfile">Profile</button>
+        </div>
+        <div style="margin-top:14px" id="quickStats">
+          <div>Ideas saved: <strong id="ideaCount">0</strong></div>
+          <div>Chat messages: <strong id="chatCount">0</strong></div>
+        </div>
+      </div>
+
+      <div id="ideaPanel" class="card">
+        <h3>Idea Garden</h3>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="seedInput" placeholder="Type a seed idea..." style="flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06)" />
+          <button class="btn" id="growBtn">Grow</button>
+        </div>
+        <div class="idea-list" id="ideaList" style="margin-top:12px"></div>
+      </div>
+
+      <div class="card">
+        <h3>Personality Modes</h3>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn ghost pmode" data-mode="Creator">Creator</button>
+          <button class="btn ghost pmode" data-mode="Analyst">Analyst</button>
+          <button class="btn ghost pmode" data-mode="Mentor">Mentor</button>
+          <button class="btn ghost pmode" data-mode="Simple">Simple</button>
+          <button class="btn ghost pmode" data-mode="Hyper">Hyper</button>
+        </div>
+        <p style="margin-top:8px;color:rgba(255,255,255,0.7)">Selected: <strong id="modeSelected">Creator</strong></p>
+      </div>
+
+    </div>
+
+    <div class="right-col">
+      <div class="card chat-box">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <h3 style="margin:0">AI Chat — Echo Companion</h3>
+          <div style="font-size:12px;color:rgba(255,255,255,0.7)">Mode: <span id="chatModeDisplay">Creator</span></div>
+        </div>
+        <div class="messages" id="messages"></div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <input id="chatInput" placeholder="Ask EchoSphere..." style="flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:rgba(0,0,0,0.35);color:#fff" />
+          <button id="voiceBtn" class="btn ghost">🎤</button>
+          <button id="sendBtn" class="btn">Send</button>
+        </div>
+        <div style="margin-top:8px;font-size:12px;color:rgba(255,255,255,0.6)">Tip: Double-click an AI reply to save it to the Idea Vault.</div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Idea Vault</h3>
+        <div id="vaultList" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating corner deck -->
+  <div class="corner-deck" id="cornerDeck">
+    <div class="deck-menu" id="deckMenu">
+      <div class="deck-item" data-target="home">🏠 Home</div>
+      <div class="deck-item" data-target="ideaPanel">🌱 Idea Garden</div>
+      <div class="deck-item" data-target="chatBox">🤖 AI Chat</div>
+      <div class="deck-item" data-target="vaultList">📦 Idea Vault</div>
+      <div class="deck-item" data-target="modeSelected">🧬 Personality</div>
+      <div class="deck-item" data-target="profileBtn">🧍 Profile</div>
+      <div class="deck-item" data-target="settings">⚙️ Settings</div>
+      <div class="deck-item" data-target="themeSel">🎨 Themes</div>
+    </div>
+    <div class="deck-toggle" id="deckToggle">≡</div>
+  </div>
+
+  <!-- settings small panel -->
+  <div class="settings-panel" id="settingsPanel">
+    <h3 style="margin:0 0 8px 0">Settings & Sphere Color</h3>
+    <div style="display:flex;gap:8px;align-items:center">
+      <label style="width:110px">Primary</label>
+      <input type="color" id="spherePrimary" />
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+      <label style="width:110px">Secondary</label>
+      <input type="color" id="sphereSecondary" />
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px">
+      <button id="saveColors" class="btn">Save Colors</button>
+      <button id="closeSettings" class="btn ghost">Close</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ==========================
+   WebGL Shader Orb (no libs)
+   - expanded: added u_colorA/u_colorB uniforms and functions to set them
+   ========================== */
+
+const orbCanvas = document.getElementById('orbCanvas');
+const gl = orbCanvas.getContext('webgl2', { antialias: true });
+let program = null;
+let u_time, u_res, u_state, u_colorA, u_colorB;
+if(!gl){
+  console.warn('WebGL2 not available — orb fallback will be simple CSS.');
+} else {
+  function compile(gl, src, type){
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
+      console.error(gl.getShaderInfoLog(s));
+      gl.deleteShader(s);
+      return null;
+    }
+    return s;
+  }
+
+  const vs = `#version 300 es
+  precision highp float;
+  in vec2 position;
+  out vec2 vUv;
+  void main(){
+    vUv = position * 0.5 + 0.5;
+    gl_Position = vec4(position, 0.0, 1.0);
+  }`;
+
+  // fragment shader: now uses two color uniforms
+  const fs = `#version 300 es
+  precision highp float;
+  uniform float u_time;
+  uniform vec2 u_res;
+  uniform float u_state;
+  uniform vec3 u_colorA;
+  uniform vec3 u_colorB;
+  in vec2 vUv;
+  out vec4 outColor;
+
+  float noise(vec2 p){
+    return sin(p.x*12.9898 + p.y*78.233 + u_time*0.6) * 0.5 + 0.5;
+  }
+
+  void main(){
+    vec2 uv = (vUv - 0.5) * vec2(u_res.x/u_res.y,1.0);
+    float r = length(uv);
+
+    // base colors controlled by uniforms (primary/secondary)
+    vec3 colIdle = u_colorA;
+    vec3 colListen = mix(u_colorA, vec3(0.3,0.9,0.5), 0.5);
+    vec3 colProcess = mix(u_colorB, vec3(1.0,0.4,0.7), 0.5);
+    vec3 colResp = u_colorB;
+
+    vec3 base = mix(colIdle, colListen, smoothstep(0.4,1.0,u_state));
+    base = mix(base, colProcess, smoothstep(1.0,1.5,u_state));
+    base = mix(base, colResp, smoothstep(2.0,2.5,u_state));
+
+    float w = sin(u_time*1.2 + r*15.0) * 0.05 + noise(uv*3.0)*0.06;
+    float circle = smoothstep(0.6 + w, 0.58 + w, r);
+    float veins = smoothstep(0.2,0.19,abs(sin(uv.x*10.0 + u_time*1.5)*0.15 + sin(uv.y*8.0+u_time*0.9)*0.12));
+    vec3 color = base * (0.6 + 0.7*circle) + veins*0.18;
+
+    float rim = smoothstep(0.52,0.5,r) * (0.6 + 0.4*noise(uv*6.0));
+    color += vec3(0.8,0.6,1.0) * rim * 0.18;
+    color *= 1.0 - smoothstep(0.8,1.0,r)*0.6;
+
+    outColor = vec4(color, 1.0);
+  }`;
+
+  const vshader = compile(gl, vs, gl.VERTEX_SHADER);
+  const fshader = compile(gl, fs, gl.FRAGMENT_SHADER);
+  program = gl.createProgram();
+  gl.attachShader(program, vshader);
+  gl.attachShader(program, fshader);
+  gl.bindAttribLocation(program, 0, 'position');
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    console.error('Program link failed:', gl.getProgramInfoLog(program));
+  }
+
+  const quad = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+
+  u_time = gl.getUniformLocation(program, 'u_time');
+  u_res = gl.getUniformLocation(program, 'u_res');
+  u_state = gl.getUniformLocation(program, 'u_state');
+  u_colorA = gl.getUniformLocation(program, 'u_colorA');
+  u_colorB = gl.getUniformLocation(program, 'u_colorB');
+
+  let start = performance.now();
+  let stateVal = 0.0;
+
+  function render(){
+    const now = (performance.now() - start)/1000;
+    if(!gl) return;
+    gl.viewport(0,0,gl.canvas.width, gl.canvas.height);
+    gl.useProgram(program);
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform1f(u_time, now);
+    gl.uniform2f(u_res, gl.canvas.width, gl.canvas.height);
+    gl.uniform1f(u_state, stateVal);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(render);
+  }
+
+  function resizeOrb(){
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    orbCanvas.width = Math.floor(orbCanvas.clientWidth * dpr);
+    orbCanvas.height = Math.floor(orbCanvas.clientHeight * dpr);
+  }
+  window.addEventListener('resize', resizeOrb);
+  resizeOrb();
+  render();
+
+  window._setOrbState = (s) => {
+    if(s === 'idle') stateVal = 0.0;
+    else if(s === 'listening') stateVal = 1.2;
+    else if(s === 'processing') stateVal = 2.0;
+    else if(s === 'responding') stateVal = 3.0;
+    else stateVal = 0.0;
+  };
+
+  // set default colors (from root CSS)
+  const defaultA = hexToRgb(localStorage.getItem('es_orb_a') || '#00d9ff');
+  const defaultB = hexToRgb(localStorage.getItem('es_orb_b') || '#ff6bb0');
+  setOrbColors(defaultA, defaultB);
+
+  orbCanvas.addEventListener('click', () => {
+    orbCanvas.classList.add('explodeScale');
+    setTimeout(()=> {
+      document.getElementById('splash').classList.add('hidden');
+      document.getElementById('login').classList.remove('hidden');
+      orbCanvas.classList.remove('explodeScale');
+    }, 520);
+  });
+
+  function setOrbColors(rgbA, rgbB){
+    // rgbA, rgbB are {r,g,b} 0-255 (or arrays)
+    const a = normalizeRGB(rgbA);
+    const b = normalizeRGB(rgbB);
+    gl.useProgram(program);
+    gl.uniform3f(u_colorA, a[0], a[1], a[2]);
+    gl.uniform3f(u_colorB, b[0], b[1], b[2]);
+  }
+  window.setOrbColors = setOrbColors;
+}
+
+/* helpers */
+function hexToRgb(hex){
+  hex = hex.replace('#','');
+  if(hex.length===3) hex = hex.split('').map(c=>c+c).join('');
+  const n = parseInt(hex,16);
+  return { r: (n>>16)&255, g: (n>>8)&255, b: n&255 };
+}
+function normalizeRGB(o){ // object or array
+  if(Array.isArray(o)) return [o[0]/255, o[1]/255, o[2]/255];
+  return [ (o.r||0)/255, (o.g||0)/255, (o.b||0)/255 ];
+}
+
+/* ==========================
+  App logic (login → intro → enter app), floating deck, settings
+  ========================== */
+
+const splash = document.getElementById('splash');
+const login = document.getElementById('login');
+const intro = document.getElementById('intro');
+const loading = document.getElementById('loading');
+const app = document.getElementById('app');
+
+const nameField = document.getElementById('nameField');
+const emailField = document.getElementById('emailField');
+const passField = document.getElementById('passField');
+const loginBtn = document.getElementById('loginBtn');
+const loginCancel = document.getElementById('loginCancel');
+
+loginCancel.addEventListener('click', ()=> {
+  login.classList.add('hidden');
+  splash.classList.remove('hidden');
+});
+
+loginBtn.addEventListener('click', ()=> {
+  const name = nameField.value.trim();
+  const email = emailField.value.trim();
+  if(!name || !email){
+    alert('Please fill both Name and Email to continue.');
+    return;
+  }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    alert('Please enter a valid email address.');
+    return;
+  }
+  // Save user and go to INTRO (not app)
+  window.EchoState = { user: { name, email }, mode: 'Creator', ideaCount:0, chatCount:0 };
+  document.getElementById('userNameDisplay').innerText = name;
+  document.getElementById('userGreeting').innerText = `Welcome, ${name.split(' ')[0]}`;
+  login.classList.add('hidden');
+  intro.classList.remove('hidden');
+});
+
+document.getElementById('enterAppBtn').addEventListener('click', ()=> {
+  intro.classList.add('hidden');
+  loading.classList.remove('hidden');
+  setTimeout(()=> {
+    loading.classList.add('hidden');
+    app.classList.remove('hidden');
+    window._setOrbState && window._setOrbState('idle');
+  }, 900);
+});
+document.getElementById('skipIntro').addEventListener('click', ()=> {
+  // immediate enter
+  intro.classList.add('hidden');
+  loading.classList.remove('hidden');
+  setTimeout(()=> {
+    loading.classList.add('hidden');
+    app.classList.remove('hidden');
+    window._setOrbState && window._setOrbState('idle');
+  }, 700);
+});
+
+/* Theme selector */
+const themeSel = document.getElementById('themeSel');
+themeSel.addEventListener('change', ()=> applyTheme(themeSel.value));
+function applyTheme(t){
+  if(t === 'dark'){
+    document.body.style.background = '#04050a';
+    document.body.style.color = '#eaf7ff';
+  } else if(t === 'light'){
+    document.body.style.background = '#f5f7fb';
+    document.body.style.color = '#111';
+  } else if(t === 'neon'){
+    document.body.style.background = '#001428';
+    document.body.style.color = '#bff';
+  }
+}
+
+/* Idea garden */
+const seedInput = document.getElementById('seedInput');
+const growBtn = document.getElementById('growBtn');
+const ideaList = document.getElementById('ideaList');
+
+growBtn.addEventListener('click', ()=> {
+  const seed = seedInput.value.trim();
+  if(!seed) { alert('Please enter a seed idea'); return; }
+  const idea = expandIdea(seed, window.EchoState.mode || 'Creator');
+  renderIdeaInGarden(idea);
+  saveIdeaToVault(idea);
+  seedInput.value = '';
+  window.EchoState.ideaCount = (window.EchoState.ideaCount || 0) + 1;
+  document.getElementById('ideaCount').innerText = window.EchoState.ideaCount;
+});
+
+function expandIdea(seed, mode){
+  return {
+    title: `${seed} · ${mode}`,
+    desc: `AI expansion for "${seed}" in ${mode} mode: features, target users, and a quick prototype plan.`
+  };
+}
+function renderIdeaInGarden(idea){
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.innerHTML = `<strong>${idea.title}</strong><p style="opacity:.85">${idea.desc}</p>`;
+  ideaList.prepend(el);
+}
+function saveIdeaToVault(idea){
+  const arr = JSON.parse(localStorage.getItem('es_vault')||'[]');
+  arr.unshift({ title: idea.title, desc: idea.desc, time: Date.now() });
+  localStorage.setItem('es_vault', JSON.stringify(arr));
+  loadVault();
+}
+
+/* Vault */
+function loadVault(){
+  const arr = JSON.parse(localStorage.getItem('es_vault')||'[]');
+  const vault = document.getElementById('vaultList');
+  vault.innerHTML = '';
+  for(const it of arr){
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.innerHTML = `<strong>${it.title}</strong><div style="font-size:12px;color:rgba(255,255,255,0.7)">${new Date(it.time).toLocaleString()}</div><p style="opacity:.85">${it.desc}</p>`;
+    vault.appendChild(el);
+  }
+}
+
+/* Chat */
+const messagesEl = document.getElementById('messages');
+const chatInput = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+const voiceBtn = document.getElementById('voiceBtn');
+
+sendBtn.addEventListener('click', sendMessage);
+chatInput.addEventListener('keydown', (e)=> { if(e.key === 'Enter') sendMessage(); });
+
+async function sendMessage(){
+  const text = chatInput.value.trim();
+  if(!text) return;
+  appendMessage('You', text, 'me');
+  chatInput.value = '';
+  window.EchoState.chatCount = (window.EchoState.chatCount || 0) + 1;
+  document.getElementById('chatCount').innerText = window.EchoState.chatCount;
+
+  // orb -> listening
+  window._setOrbState && window._setOrbState('listening');
+
+  // try online call
+  try {
+    const reply = await askOnlineAssistant(text, window.EchoState.mode, window.EchoState.user);
+    appendMessage('EchoSphere', reply, 'ai');
+    window._setOrbState && window._setOrbState('responding');
+    attachDoubleClickSave();
+    return;
+  } catch (err) {
+    // fallback offline
+    const reply = offlineAssistant(text, window.EchoState.mode);
+    appendMessage('EchoSphere', reply, 'ai');
+    window._setOrbState && window._setOrbState('responding');
+    attachDoubleClickSave();
+  }
+}
+
+function appendMessage(who, text, cls){
+  const b = document.createElement('div');
+  b.className = 'bubble ' + (cls === 'me' ? 'me' : 'ai');
+  b.innerHTML = `<strong style="display:block;color:var(--accent1)">${who}</strong><div style="margin-top:6px">${escapeHtml(text)}</div>`;
+  messagesEl.appendChild(b);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function escapeHtml(s){ return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
+
+// online assistant request to local proxy
+async function askOnlineAssistant(message, mode, user){
+  const url = 'http://localhost:3000/api/chat';
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ message, mode, user })
+  });
+  if(!res.ok) throw new Error('Online assistant unreachable');
+  const j = await res.json();
+  return j.reply || JSON.stringify(j);
+}
+
+// offline assistant
+function offlineAssistant(message, mode){
+  const m = message.toLowerCase().trim();
+  if(m.startsWith('/reverse')) return message.replace('/reverse','').split('').reverse().join('');
+  if(m.startsWith('/synonyms')) { const r = m.replace('/synonyms','').trim(); return `Synonyms (mock) for "${r}": ${r}-alt1, ${r}-alt2.`; }
+  if(/^how|what|why|when|where/.test(m)) return `Step-by-step: 1) Define 2) Prototype 3) Test. (Mode: ${mode})`;
+  return `Idea expansion (offline ${mode}): key features and a 3-step MVP plan for "${message}".`;
+}
+
+// dbl-click to save
+function attachDoubleClickSave(){
+  document.querySelectorAll('.bubble.ai').forEach(b => {
+    if(!b.dataset.bound){
+      b.dataset.bound = '1';
+      b.addEventListener('dblclick', ()=>{
+        const txt = b.querySelector('div:nth-child(2)').innerText;
+        saveIdeaToVault({ title: txt.slice(0,60), desc: txt });
+        alert('Saved AI reply to Vault');
+      });
+    }
+  });
+}
+
+/* Voice recognition (Chrome) */
+let recognition;
+if('webkitSpeechRecognition' in window){
+  recognition = new webkitSpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.onstart = () => { window._setOrbState && window._setOrbState('listening'); voiceBtn.innerText = '🎙️'; };
+  recognition.onend = () => { voiceBtn.innerText = '🎤'; window._setOrbState && window._setOrbState('idle'); };
+  recognition.onresult = (e) => {
+    const t = e.results[0][0].transcript;
+    chatInput.value = t;
+    sendMessage();
+  };
+}
+voiceBtn.addEventListener('click', ()=> {
+  if(recognition) recognition.start();
+  else alert('Voice not available — use Chrome desktop for demo.');
+});
+
+/* Personality modes */
+document.querySelectorAll('.pmode').forEach(btn => {
+  btn.addEventListener('click', ()=> {
+    window.EchoState.mode = btn.dataset.mode;
+    document.getElementById('modeSelected').innerText = btn.dataset.mode;
+    document.getElementById('chatModeDisplay').innerText = btn.dataset.mode;
+  });
+});
+
+/* floating deck behaviour */
+const deckToggle = document.getElementById('deckToggle');
+const deckMenu = document.getElementById('deckMenu');
+deckToggle.addEventListener('click', ()=> deckMenu.classList.toggle('open'));
+
+// map deck items to simple actions (scroll / focus)
+document.querySelectorAll('.deck-item').forEach(it => {
+  it.addEventListener('click', (e)=>{
+    const target = it.dataset.target;
+    deckMenu.classList.remove('open');
+    if(target === 'home'){
+      // scroll to top
+      document.querySelector('.left-col').scrollTo({ top: 0, behavior: 'smooth' });
+    } else if(target === 'ideaPanel'){
+      seedInput.focus();
+      seedInput.scrollIntoView({behavior:'smooth', block:'center'});
+    } else if(target === 'chatBox'){
+      chatInput.focus();
+      document.querySelector('.messages').scrollTo({ top: document.querySelector('.messages').scrollHeight, behavior:'smooth' });
+    } else if(target === 'vaultList'){
+      document.getElementById('vaultList').scrollIntoView({behavior:'smooth', block:'center'});
+    } else if(target === 'modeSelected'){
+      document.getElementById('modeSelected').scrollIntoView({behavior:'smooth', block:'center'});
+    } else if(target === 'profileBtn'){
+      // show profile stub
+      alert('Profile page (stub) — coming soon');
+    } else if(target === 'settings'){
+      document.getElementById('settingsPanel').classList.add('open');
+    } else if(target === 'themeSel'){
+      themeSel.focus();
+    }
+  });
+});
+
+/* settings panel: color pickers */
+const spherePrimary = document.getElementById('spherePrimary');
+const sphereSecondary = document.getElementById('sphereSecondary');
+const saveColors = document.getElementById('saveColors');
+const closeSettings = document.getElementById('closeSettings');
+
+function loadSavedColors(){
+  const a = localStorage.getItem('es_orb_a') || '#00d9ff';
+  const b = localStorage.getItem('es_orb_b') || '#ff6bb0';
+  spherePrimary.value = a;
+  sphereSecondary.value = b;
+  // apply immediately
+  const ra = hexToRgb(a), rb = hexToRgb(b);
+  if(window.setOrbColors) window.setOrbColors(ra, rb);
+}
+loadSavedColors();
+
+saveColors.addEventListener('click', ()=>{
+  const a = spherePrimary.value;
+  const b = sphereSecondary.value;
+  localStorage.setItem('es_orb_a', a);
+  localStorage.setItem('es_orb_b', b);
+  const ra = hexToRgb(a), rb = hexToRgb(b);
+  if(window.setOrbColors) window.setOrbColors(ra, rb);
+  alert('Sphere colors saved');
+});
+
+closeSettings.addEventListener('click', ()=> document.getElementById('settingsPanel').classList.remove('open'));
+
+/* quick nav buttons */
+document.getElementById('toIdea').addEventListener('click', ()=> seedInput.focus());
+document.getElementById('toChat').addEventListener('click', ()=> chatInput.focus());
+document.getElementById('toProfile').addEventListener('click', ()=> alert('Profile page (stub) — coming soon'));
+
+/* initial vault/stats */
+(function init(){
+  loadVault();
+  const storedStats = JSON.parse(localStorage.getItem('es_stats') || '{}');
+  if(storedStats.ideaCount) document.getElementById('ideaCount').innerText = storedStats.ideaCount;
+  if(storedStats.chatCount) document.getElementById('chatCount').innerText = storedStats.chatCount;
+})();
+
+window.addEventListener('beforeunload', ()=> {
+  localStorage.setItem('es_stats', JSON.stringify({
+    ideaCount: window.EchoState?.ideaCount || 0,
+    chatCount: window.EchoState?.chatCount || 0
+  }));
+});
+
+console.log('EchoSphere X updated: entry flow fixed, floating deck added, sphere color controls persisted.');
+</script>
+</body>
+</html>
