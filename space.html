@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>EchoSphere X — Hybrid Space Innovation Prototype</title>
+<style>
+:root{
+  --bg-dark:#020317; --bg-galaxy:#001028; --bg-light:#f6f8fb;
+  --accent1:#00d9ff; --accent2:#ff6bb0; --glass:rgba(255,255,255,0.04);
+  --card-radius:14px; --muted: rgba(255,255,255,0.7);
+}
+*{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;margin:0;padding:0}
+html,body{height:100%;background:var(--bg-dark);color:#eaf7ff;overflow:hidden}
+canvas.bg{position:fixed;inset:0;z-index:0}
+
+/* header */
+.header{position:fixed;left:12px;right:12px;top:12px;height:56px;display:flex;align-items:center;gap:12px;z-index:90}
+.brand{font-weight:800}
+.top-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+
+/* generic card */
+.center-card{width:92%;max-width:980px;padding:18px;border-radius:var(--card-radius);
+ background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.008));
+ box-shadow:0 30px 90px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.03);text-align:center}
+
+/* screens */
+.screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:10}
+.hidden{display:none}
+
+/* splash */
+.title{font-size:34px;font-weight:900}
+.sub{color:rgba(255,255,255,0.78);margin-top:8px}
+
+/* orb */
+.orb-wrap{width:420px;height:420px;margin:20px auto;position:relative;z-index:5}
+#orbCanvas{width:420px;height:420px;border-radius:50%;cursor:pointer;display:block;box-shadow:0 40px 110px rgba(0,0,0,0.7)}
+.orb-label{position:absolute;left:50%;transform:translateX(-50%);bottom:18px;background:linear-gradient(90deg,var(--accent1),var(--accent2));padding:8px 12px;border-radius:12px;color:#001;font-weight:800}
+
+/* controls */
+.controls{display:flex;gap:8px;justify-content:center;margin-top:12px}
+.select{padding:8px;border-radius:8px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);color:#fff}
+.btn{padding:10px 14px;border-radius:10px;border:0;background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#001;font-weight:800;cursor:pointer}
+.btn.ghost{padding:8px 10px;border-radius:10px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:inherit;cursor:pointer}
+
+/* app shell layout */
+.app-shell{position:fixed;inset:0;display:none;z-index:60}
+.container{display:grid;grid-template-columns:1fr 420px;gap:18px;padding:92px 22px 22px 22px;height:100%;box-sizing:border-box}
+.left{overflow:auto;padding-right:8px}
+.right{position:relative;overflow:auto}
+
+/* compact card */
+.compact{padding:12px;border-radius:12px;background:rgba(255,255,255,0.02);margin-bottom:12px}
+
+/* radial hub */
+.radial-hub{width:260px;height:260px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;margin:auto}
+.radial-item{position:absolute;width:68px;height:68px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#001;font-weight:800;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,0.45)}
+
+/* page overlays */
+.page{position:fixed;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0.72), rgba(0,0,0,0.36));backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:120;opacity:1;transition:all .35s}
+.page.hidden{opacity:0;pointer-events:none;transform:translateY(18px) scale(.99)}
+.panel{max-width:980px;text-align:left;padding:18px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.006));border:1px solid rgba(255,255,255,0.03)}
+
+/* chat area */
+.chat-area{display:flex;gap:12px}
+.chat-col{flex:1;display:flex;flex-direction:column}
+.chat-messages{flex:1;overflow:auto;border-radius:10px;padding:10px;background:rgba(255,255,255,0.02)}
+.msg{padding:10px;border-radius:10px;margin-bottom:8px;max-width:86%}
+.me{align-self:flex-end;background:linear-gradient(90deg, rgba(0,191,255,0.06), rgba(0,191,255,0.03))}
+.ai{align-self:flex-start;background:linear-gradient(90deg, rgba(255,105,180,0.04), rgba(255,105,180,0.02))}
+
+/* forms & avatar */
+input,textarea,select{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:rgba(0,0,0,0.35);color:#fff;outline:none}
+textarea{min-height:120px;resize:vertical}
+.avatar{width:120px;height:120px;border-radius:16px;background:linear-gradient(90deg,var(--accent1),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:900;color:#001;font-size:40px}
+
+/* chart */
+.chart-box{width:100%;height:150px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.012), rgba(255,255,255,0.008));padding:8px}
+
+/* responsive */
+@media(max-width:1000px){ .container{grid-template-columns:1fr} .orb-wrap{width:320px;height:320px} #orbCanvas{width:320px;height:320px} }
+.small{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<!-- galaxy background -->
+<canvas id="bgCanvas" class="bg"></canvas>
+
+<!-- header -->
+<div class="header" style="z-index:95">
+  <div class="brand">EchoSphere X — Hybrid Mission Innovation</div>
+  <div class="top-actions">
+    <select id="themeSel" class="select" title="Theme">
+      <option value="galaxy">Galaxy</option>
+      <option value="dark">Dark</option>
+      <option value="neon">Neon</option>
+      <option value="light">Light</option>
+    </select>
+    <button id="openSettings" class="btn ghost">Settings</button>
+  </div>
+</div>
+
+<!-- SPLASH -->
+<div id="splash" class="screen">
+  <div class="center-card">
+    <h1 class="title">EchoSphere X</h1>
+    <p class="sub">A hybrid universe for orbital mission ideas — mission planning, debris mitigation, and startup kits.</p>
+
+    <div class="orb-wrap" title="Tap to Enter">
+      <canvas id="orbCanvas" width="420" height="420"></canvas>
+      <div class="orb-label">Enter EchoSphere X</div>
+    </div>
+
+    <div class="controls">
+      <select id="orbMode" class="select">
+        <option value="glass">Glass</option>
+        <option value="liquid">Liquid</option>
+        <option value="particle">Particle</option>
+        <option value="energy">Energy</option>
+      </select>
+      <button id="autoOrb" class="btn ghost">Auto: OFF</button>
+    </div>
+
+    <p class="small" style="margin-top:12px;color:rgba(255,255,255,0.72)">
+      Hybrid mode: Mission planning + Debris mitigation + Startup ideation. Tap the orb to begin.
+    </p>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="login" class="screen hidden">
+  <div class="center-card" style="max-width:520px">
+    <h2>Identity Initiation</h2>
+    <p class="small">Name & Email required for session</p>
+    <input id="nameField" placeholder="Full name" />
+    <input id="emailField" placeholder="Email address" />
+    <div style="display:flex;gap:10px;margin-top:12px;justify-content:center">
+      <button id="loginContinue" class="btn">Continue</button>
+      <button id="loginCancel" class="btn ghost">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div id="loading" class="screen hidden">
+  <div class="center-card">
+    <h2>Preparing your mission...</h2>
+    <p class="small">Initializing hybrid environment</p>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div id="appShell" class="app-shell hidden">
+  <div class="container">
+    <div class="left">
+      <div class="compact">
+        <h3>Mission Hub</h3>
+        <p class="small">Welcome, <strong id="userName">Mission Innovator</strong></p>
+        <div style="display:flex;gap:10px;margin-top:12px">
+          <button id="btnAI" class="btn">Stellar AI</button>
+          <button id="btnOrbit" class="btn">Idea Orbit</button>
+          <button id="btnLab" class="btn">Orbit Lab</button>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:10px">
+          <button id="btnStartup" class="btn ghost">Startup Kit</button>
+          <button id="btnVault" class="btn ghost">Vault</button>
+          <button id="btnFiles" class="btn ghost">Summarizer</button>
+        </div>
+
+        <div style="margin-top:12px">
+          <strong>Quick Templates</strong>
+          <ul style="margin-top:8px;list-style:disc;padding-left:18px;color:rgba(255,255,255,0.8)">
+            <li>Low-LEO Debris Tug</li>
+            <li>MicroSAR Coastal Monitoring</li>
+            <li>Reusable Comm Node</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="compact">
+        <h4>Idea Garden</h4>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input id="seedInput" placeholder="Seed a mission idea..." />
+          <button id="growSeed" class="btn">Grow</button>
+        </div>
+        <div id="gardenList" style="margin-top:12px"></div>
+      </div>
+
+      <div class="compact">
+        <h4>Session Streak</h4>
+        <div class="chart-box"><canvas id="streakChart" width="800" height="160" style="width:100%;height:100%"></canvas></div>
+        <p class="small" style="margin-top:8px">Minutes designing missions (local)</p>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="compact">
+        <h4>Orb Hub</h4>
+        <div class="radial-hub" id="radialHub"></div>
+        <p class="small" style="margin-top:8px">Tap a node to open a feature</p>
+      </div>
+
+      <div class="compact">
+        <h4>Vault Preview</h4>
+        <div id="vaultPreview"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGES: AI, Orbit, Lab, Startup, Vault, Profile, Files, Settings -->
+<!-- AI -->
+<div id="pageAI" class="page hidden">
+  <div class="panel">
+    <button class="btn ghost" data-close>← Back</button>
+    <h2>Stellar AI — Mission Companion</h2>
+    <p class="small">Offline-first. Set API_BASE to connect online ChatGPT.</p>
+    <div class="chat-area" style="margin-top:12px">
+      <div class="chat-col">
+        <div id="chatMessages" class="chat-messages"></div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input id="chatInput" placeholder="Ask about mission design, debris, or startup ideas..." />
+          <button id="voiceBtn" class="btn ghost">🎤</button>
+          <button id="sendBtn" class="btn">Send</button>
+        </div>
+      </div>
+      <div style="width:260px">
+        <div class="compact">
+          <h4>Personality</h4>
+          <select id="personality" class="select" style="margin-top:8px"><option>Creator</option><option>Analyst</option><option>Mentor</option><option>Hybrid</option></select>
+        </div>
+        <div class="compact">
+          <h4>Quick Prompts</h4>
+          <button class="btn ghost quick" data-q="Plan a small LEO satellite for ocean monitoring">Plan LEO SAR</button>
+          <button class="btn ghost quick" data-q="Outline a debris mitigation idea using nets">Debris Mitigation</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Idea Orbit -->
+<div id="pageOrbit" class="page hidden">
+  <div class="panel">
+    <button class="btn ghost" data-close>← Back</button>
+    <h2>Idea Orbit</h2>
+    <p class="small">Seed ideas are visualized as orbiting nodes.</p>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <textarea id="orbitSeed" placeholder="Type ideas - one per line"></textarea>
+      <button id="orbitGenerate" class="btn">Generate</button>
+    </div>
+    <div style="margin-top:12px"><canvas id="orbitCanvas" width="760" height="360" style="width:100%;height:360px;border-radius:8px;background:linear-gradient(90deg, rgba(0,0,0,0.25), rgba(255,255,255,0.01));"></canvas></div>
+    <div id="orbitList" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<!-- Orbit Lab -->
+<div id="pageLab" class="page hidden">
+  <div class="panel">
+    <button class="btn ghost" data-close>← Back</button>
+    <h2>Orbit Lab</h2>
+    <p class="small">Place satellites or debris and view a simple orbital simulation.</p>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <select id="labType"><option value="sat">Satellite</option><option value="debris">Debris</option></select>
+      <button id="placeLab" class="btn">Place</button>
+      <button id="clearLab" class="btn ghost">Clear</button>
+    </div>
+    <div style="margin-top:12px"><canvas id="labCanvas" width="760" height="360" style="width:100%;height:360px;border-radius:8px;background:linear-gradient(90deg,#001026,rgba(255,255,255,0.01));"></canvas></div>
+    <div id="labList" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<!-- Startup Kit -->
+<div id="pageStartup" class="page hidden">
+  <div class="panel">
+    <button class="btn ghost" data-close>← Back</button>
+    <h2>Startup Kit</h2>
+    <p class="small">Quick template to size market & revenue at a glance.</p>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <input id="startupName" placeholder="Idea / Company name" />
+      <input id="startupMarket" placeholder="Target market size (USD)" />
+      <button id="startupEval" class="btn">Evaluate</button>
+    </div>
+    <div id="startupOut" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<!-- Vault -->
+<div id="pageVault" class="page hidden">
+  <div class="panel">
+    <button class="btn ghost" data-close>← Back</button>
+    <h2>Idea Vault</h2>
+    <div class="small">Saved mission ideas & AI replies. Double-click AI replies to save.</div>
+    <div id="vaultList" style="margin-top:12px;display:flex;flex-direction:column;gap:10px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+      <button id="exportVault" class="btn ghost">Export</button>
+      <button id="clearVault" class="btn ghost">Clear Vault</button>
+    </div>
+  </div>
+</div>
+
+<!-- Profile -->
+<div id="pageProfile" class="page hidden">
+  <div class="panel">
+    <button class="btn ghost" data-close>← Back</button>
+    <h2>Profile Lab</h2>
+    <div style="display:flex;gap:12px;align-items:center">
+      <div class="avatar" id="avatarBox">E</div>
+      <div style="flex:1">
+        <input id="pname" placeholder="Full name" />
+        <input id="pmail" placeholder="Email" />
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input id="avatarFile" type="file" accept="image/*" />
+          <button id="genAvatar" class="btn ghost">Generate</button>
+          <button id="saveProfile" class="btn">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Files / Summarizer -->
+<div id="pageFiles" class="page hidden">
+  <div class="panel">
+    <button class="btn ghost" data-close>← Back</button>
+    <h2>Quantum Summarizer</h2>
+    <p class="small">Upload .txt/.md or paste notes. Offline summarizer included.</p>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <input id="fileInput" type="file" accept=".txt,.md" />
+      <button id="loadFileBtn" class="btn">Load</button>
+      <button id="pasteBtn" class="btn ghost">Paste</button>
+    </div>
+    <textarea id="fileArea" style="margin-top:12px" placeholder="File contents..."></textarea>
+    <div style="display:flex;justify-content:flex-end;margin-top:8px">
+      <button id="summBtn" class="btn">Summarize</button>
+    </div>
+    <div id="summaryOut" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<!-- Settings -->
+<div id="pageSettings" class="page hidden">
+  <div class="panel">
+    <button class="btn ghost" data-close>← Back</button>
+    <h2>Settings Lab</h2>
+    <div style="margin-top:8px">
+      <label>AI Mode</label>
+      <select id="aiMode" class="select" style="margin-top:6px"><option value="online_first">Online-first</option><option value="offline_only">Offline only</option></select>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button id="clearData" class="btn ghost">Clear Local Data</button>
+      <button id="exportAll" class="btn ghost">Export All</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================
+   EchoSphere X — Hybrid Combined Space Prototype
+   Single-file client, offline-first.
+   Set API_BASE to enable online ChatGPT endpoints.
+   ========================= */
+
+const API_BASE = ""; // set to your server like "http://192.168.1.42:3000"
+
+/* ---------- Helpers ---------- */
+const $ = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+function show(el){ if(!el) return; el.classList.remove('hidden'); }
+function hide(el){ if(!el) return; el.classList.add('hidden'); }
+function escapeHtml(s){ return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function download(name, content){ const a=document.createElement('a'); a.href = URL.createObjectURL(new Blob([content],{type:'application/json'})); a.download = name; a.click(); }
+
+/* ---------- Background galaxy ---------- */
+const bg = $('#bgCanvas'); const bgCtx = bg.getContext('2d');
+function resizeBG(){ const dpr = Math.min(devicePixelRatio||1,2); bg.width = Math.floor(innerWidth*dpr); bg.height = Math.floor(innerHeight*dpr); bg.style.width = innerWidth + 'px'; bg.style.height = innerHeight + 'px'; }
+window.addEventListener('resize', resizeBG); resizeBG();
+let stars=[];
+function initStars(){ stars=[]; const count = Math.max(80, Math.floor((innerWidth+innerHeight)/30)); for(let i=0;i<count;i++){ stars.push({x:Math.random()*bg.width, y:Math.random()*bg.height, r:0.4+Math.random()*1.8, vx:(Math.random()-0.5)*0.06, vy:(Math.random()-0.5)*0.06}); } }
+initStars();
+(function drawBG(){ bgCtx.clearRect(0,0,bg.width,bg.height); const g = bgCtx.createLinearGradient(0,0,bg.width,bg.height); g.addColorStop(0,'#020316'); g.addColorStop(1,'#001428'); bgCtx.fillStyle = g; bgCtx.fillRect(0,0,bg.width,bg.height); for(const s of stars){ s.x+=s.vx; s.y+=s.vy; if(s.x<-50) s.x = bg.width+50; if(s.x>bg.width+50) s.x=-50; if(s.y<-50) s.y = bg.height+50; if(s.y>bg.height+50) s.y=-50; bgCtx.beginPath(); bgCtx.fillStyle='rgba(200,220,255,0.04)'; bgCtx.arc(s.x,s.y,s.r,0,Math.PI*2); bgCtx.fill(); } requestAnimationFrame(drawBG); })();
+
+/* ---------- Orb (modes) ---------- */
+const orbCanvas = $('#orbCanvas'); const octx = orbCanvas.getContext('2d');
+function resizeOrb(){ const dpr = Math.min(devicePixelRatio||1,2); const s = orbCanvas.clientWidth || orbCanvas.width; orbCanvas.width = Math.floor(s*dpr); orbCanvas.height = Math.floor(s*dpr); orbCanvas.style.width = s + 'px'; orbCanvas.style.height = s + 'px'; }
+window.addEventListener('resize', resizeOrb); resizeOrb();
+let orbMode = 'glass', orbAuto=false, orbAutoInterval = null;
+$('#orbMode').addEventListener('change', e=> orbMode = e.target.value);
+$('#autoOrb').addEventListener('click', ()=> {
+  orbAuto = !orbAuto; $('#autoOrb').innerText = 'Auto: ' + (orbAuto ? 'ON':'OFF');
+  if(orbAuto) orbAutoInterval = setInterval(()=>{ const arr=['glass','liquid','particle','energy']; orbMode = arr[(arr.indexOf(orbMode)+1)%arr.length]; $('#orbMode').value=orbMode; }, 3000);
+  else { clearInterval(orbAutoInterval); orbAutoInterval=null; }
+});
+function renderOrb(t=0){
+  const w = orbCanvas.width, h = orbCanvas.height; octx.clearRect(0,0,w,h);
+  const cx=w/2, cy=h/2, R=Math.min(w,h)/2 -6;
+  if(orbMode==='glass'){
+    const grd=octx.createRadialGradient(cx,cy,10,cx,cy,R); grd.addColorStop(0,'rgba(180,230,255,0.35)'); grd.addColorStop(1,'rgba(0,10,20,0.05)');
+    octx.fillStyle = grd; octx.beginPath(); octx.arc(cx,cy,R,0,Math.PI*2); octx.fill();
+    octx.lineWidth=3; octx.strokeStyle='rgba(180,230,255,0.6)'; octx.beginPath(); octx.arc(cx,cy,R-18,0,Math.PI*2); octx.stroke();
+    for(let i=0;i<8;i++){ octx.beginPath(); octx.strokeStyle='rgba(255,255,255,0.03)'; const ang = (i/8)*Math.PI*2 + t/3000; octx.moveTo(cx,cy); const x=cx+Math.cos(ang)*(R-20), y=cy+Math.sin(ang)*(R-20); octx.lineTo(x,y); octx.stroke(); }
+  } else if(orbMode==='liquid'){
+    for(let i=0;i<10;i++){ const a = t*0.001 + i*0.63; const r = R*0.55 + Math.sin(t*0.002 + i)*18; const x = cx + Math.cos(a)*(r*0.5), y = cy + Math.sin(a)*(r*0.5); const rad = 24 + 8*Math.sin(t*0.003 + i); octx.beginPath(); octx.fillStyle = `rgba(${30+i*12},${150-i*8},${230},0.16)`; octx.arc(x,y,rad,0,Math.PI*2); octx.fill(); } octx.lineWidth=2; octx.strokeStyle='rgba(160,220,255,0.12)'; octx.beginPath(); octx.arc(cx,cy,R-6,0,Math.PI*2); octx.stroke();
+  } else if(orbMode==='particle'){
+    for(let i=0;i<120;i++){ const ang = (i/120)*Math.PI*2 + t*0.0006*(i%5+1); const rad = R*(0.55 + 0.4*Math.sin(t*0.001+i)); const x = cx + Math.cos(ang)*rad, y = cy + Math.sin(ang)*rad; octx.fillStyle='rgba(150,200,255,0.06)'; octx.beginPath(); octx.arc(x,y,1.6,0,Math.PI*2); octx.fill(); }
+  } else {
+    for(let i=0;i<5;i++){ const a=(t*0.001+i*0.7); const rad = R*0.5 + Math.abs(Math.sin(t*0.004+i))*R*0.35; octx.beginPath(); octx.strokeStyle = `rgba(255,${120+i*20},${200-i*10},${0.08+i*0.02})`; octx.lineWidth = 6- i; octx.arc(cx,cy,rad,0,Math.PI*2); octx.stroke(); }
+  }
+  requestAnimationFrame(renderOrb);
+}
+renderOrb();
+
+/* orb click => login */
+orbCanvas.addEventListener('click', ()=> {
+  orbCanvas.style.transition='transform .52s cubic-bezier(.2,.95,.25,1)'; orbCanvas.style.transform='scale(1.06)';
+  setTimeout(()=>{ orbCanvas.style.transform=''; hide($('#splash')); show($('#login')); },520);
+});
+
+/* ---------- Login ---------- */
+$('#loginCancel').addEventListener('click', ()=> { hide($('#login')); show($('#splash')); });
+$('#loginContinue').addEventListener('click', ()=> {
+  const n = $('#nameField').value.trim(), e = $('#emailField').value.trim();
+  if(!n||!e){ alert('Please enter name & email'); return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){ alert('Enter a valid email'); return; }
+  const user = {name:n, email:e, id:`${n.split(' ')[0]}-X${Math.floor(Math.random()*900)+100}`};
+  localStorage.setItem('es_user', JSON.stringify(user));
+  $('#userName').innerText = user.name;
+  hide($('#login')); show($('#loading'));
+  setTimeout(()=>{ hide($('#loading')); $('#appShell').style.display='block'; show($('#appShell')); buildRadialHub(); initVault(); renderVaultPreview(); startSessionTick(); updateChart(); }, 900);
+});
+
+/* ---------- Radial hub ---------- */
+function buildRadialHub(){
+  const hub = $('#radialHub'); hub.innerHTML=''; const items=[{l:'AI',id:'pageAI'},{l:'Orbit',id:'pageOrbit'},{l:'Lab',id:'pageLab'},{l:'Startup',id:'pageStartup'},{l:'Vault',id:'pageVault'},{l:'Profile',id:'pageProfile'},{l:'Files',id:'pageFiles'}];
+  const R=90;
+  items.forEach((it,i)=>{ const ang=(i/items.length)*Math.PI*2 - Math.PI/2; const x=Math.cos(ang)*R + 130, y=Math.sin(ang)*R + 130; const d=document.createElement('div'); d.className='radial-item'; d.innerText=it.l; d.style.left=(x-34)+'px'; d.style.top=(y-34)+'px'; d.onclick=()=> openPage(it.id); hub.appendChild(d); });
+}
+
+/* ---------- Navigation ---------- */
+function openPage(id){ const el = $('#'+id); if(!el) return; show(el); pushEvent('open:'+id); if(id==='pageVault') renderVaultList(); if(id==='pageOrbit') startOrbit(); if(id==='pageLab') startLab(); }
+$$('[data-close]').forEach(b=>b.addEventListener('click', e=> e.target.closest('.page').classList.add('hidden')));
+$('#btnAI').addEventListener('click', ()=> openPage('pageAI'));
+$('#btnOrbit').addEventListener('click', ()=> openPage('pageOrbit'));
+$('#btnLab').addEventListener('click', ()=> openPage('pageLab'));
+$('#btnStartup').addEventListener('click', ()=> openPage('pageStartup'));
+$('#btnVault').addEventListener('click', ()=> openPage('pageVault'));
+$('#btnFiles').addEventListener('click', ()=> openPage('pageFiles'));
+
+/* ---------- Idea Garden ---------- */
+$('#growSeed').addEventListener('click', ()=> {
+  const s = $('#seedInput').value.trim(); if(!s) return alert('Enter a seed');
+  const idea = expandIdea(s,'Hybrid'); renderGarden(idea); saveToVault(idea); $('#seedInput').value='';
+});
+function expandIdea(seed,mode){ return { title:`${seed} · ${mode}`, desc:`Mission plan for "${seed}": concept, target users, quick prototype roadmap.` }; }
+function renderGarden(idea){ const list = $('#gardenList'); const el=document.createElement('div'); el.className='compact'; el.innerHTML=`<strong>${idea.title}</strong><div class="small" style="color:rgba(255,255,255,0.8)">${idea.desc}</div>`; list.prepend(el); }
+
+/* ---------- Vault ---------- */
+function initVault(){ if(!localStorage.getItem('es_vault')) localStorage.setItem('es_vault', JSON.stringify([])); }
+function saveToVault(item){ const arr = JSON.parse(localStorage.getItem('es_vault')||'[]'); arr.unshift(Object.assign({},item,{time:Date.now()})); localStorage.setItem('es_vault', JSON.stringify(arr)); }
+function renderVaultPreview(){ const p = $('#vaultPreview'); p.innerHTML=''; const arr = JSON.parse(localStorage.getItem('es_vault')||'[]'); arr.slice(0,3).forEach(it=>{ const d=document.createElement('div'); d.className='compact'; d.innerHTML=`<strong>${it.title}</strong><div class="small">${it.desc}</div>`; p.appendChild(d); }); }
+function renderVaultList(){ const list = $('#vaultList'); list.innerHTML=''; const arr = JSON.parse(localStorage.getItem('es_vault')||'[]'); if(arr.length===0){ list.innerHTML='<div class="small">No saved ideas.</div>'; return; } arr.forEach(it=>{ const e=document.createElement('div'); e.className='compact'; e.innerHTML=`<strong>${it.title}</strong><div class="small">${it.desc}</div><div class="small">${new Date(it.time).toLocaleString()}</div>`; const del = document.createElement('button'); del.className='btn ghost'; del.innerText='Delete'; del.onclick=()=>{ if(confirm('Delete?')){ deleteVault(it.time); renderVaultList(); renderVaultPreview(); } }; e.appendChild(del); list.appendChild(e); }); }
+function deleteVault(ts){ let arr = JSON.parse(localStorage.getItem('es_vault')||'[]'); arr = arr.filter(x=>x.time!==ts); localStorage.setItem('es_vault', JSON.stringify(arr)); }
+
+/* export/clear */
+$('#exportVault').addEventListener('click', ()=> { const arr = JSON.parse(localStorage.getItem('es_vault')||'[]'); download('vault.json', JSON.stringify(arr,null,2)); });
+$('#clearVault').addEventListener('click', ()=> { if(confirm('Clear vault?')){ localStorage.removeItem('es_vault'); renderVaultList(); renderVaultPreview(); } });
+
+/* ---------- AI Chat (offline-first) ---------- */
+const chatMessages = $('#chatMessages'), chatInput = $('#chatInput'), sendBtn = $('#sendBtn');
+sendBtn.addEventListener('click', sendMessage);
+chatInput.addEventListener('keydown', e=>{ if(e.key==='Enter') sendMessage(); });
+$$('.quick').forEach(b=> b.addEventListener('click', ()=> { chatInput.value = b.dataset.q; sendMessage(); }));
+
+async function sendMessage(){
+  const text = chatInput.value.trim(); if(!text) return; appendChat('You',text,'me'); chatInput.value=''; setOrbListening();
+  const mode = $('#aiMode') ? $('#aiMode').value : 'offline_only';
+  if(API_BASE && mode !== 'offline_only'){
+    try {
+      const res = await fetch(API_BASE + '/api/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ message:text, mode: $('#personality').value, user: JSON.parse(localStorage.getItem('es_user')||'{}') }) });
+      if(res.ok){ const j = await res.json(); appendChat('EchoSphere', j.reply || j.summary || JSON.stringify(j), 'ai'); setOrbResponding(); return; }
+    } catch(e){ console.warn('online failed', e); }
+  }
+  // offline fallback
+  const reply = offlineAssistant(text, $('#personality').value);
+  appendChat('EchoSphere', reply, 'ai'); setOrbResponding();
+}
+function appendChat(who, text, cls){
+  const el = document.createElement('div'); el.className = 'msg ' + (cls==='me' ? 'me' : 'ai'); el.innerHTML = `<strong style="color:var(--accent1)">${who}</strong><div style="margin-top:6px;white-space:pre-wrap">${escapeHtml(text)}</div>`;
+  if(cls!=='me'){ el.addEventListener('dblclick', ()=> { saveToVault({title:text.slice(0,80), desc:text}); alert('Saved to Vault'); renderVaultPreview(); }); }
+  chatMessages.appendChild(el); chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+function offlineAssistant(message, personality){
+  const m = message.toLowerCase();
+  if(/^(hi|hello|hey)\b/.test(m)) return "Hello Mission Innovator — what's your mission?";
+  if(m.includes('debris')) return "Debris approaches: nets, tethers, drag augmentation, laser nudging. Consider risk/cost estimates and orbital mechanics for safe capture.";
+  if(m.includes('satellite')||m.includes('sat')) return "Consider payload mass, delta-V, ops, and comms. LEO favor low-power sensors and efficient comm bursts.";
+  if(m.includes('plan')||m.includes('steps')) return "Quick plan:\n1) Define objective\n2) Prototype (payload & comms)\n3) Simulate orbit\n4) Field test & iterate";
+  return `Creative expansion:\n- core concept\n- 3 key features\n- next: quick prototype`;
+}
+
+/* voice */
+let recognizer=null;
+if('webkitSpeechRecognition' in window || 'SpeechRecognition' in window){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition; recognizer = new SR(); recognizer.lang='en-US';
+  recognizer.onresult = e=> { chatInput.value = e.results[0][0].transcript; sendMessage(); };
+  recognizer.onerror = e=> console.warn('voice err', e);
+}
+$('#voiceBtn').addEventListener('click', ()=> { if(!recognizer) return alert('Voice not supported here'); recognizer.start(); });
+
+/* TTS */
+function speak(t){ if(!('speechSynthesis' in window)) return; const u = new SpeechSynthesisUtterance(t); u.lang='en-US'; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); }
+
+/* orb state reactions */
+function setOrbListening(){ orbMode='particle'; $('#orbMode').value=orbMode; }
+function setOrbResponding(){ orbMode='energy'; $('#orbMode').value=orbMode; setTimeout(()=>{ orbMode='glass'; $('#orbMode').value=orbMode; },1200); }
+
+/* ---------- Idea Orbit (canvas nodes) ---------- */
+let orbitNodes = [], orbitRAF = null;
+function startOrbit(){
+  const canvas = $('#orbitCanvas'); const ctx = canvas.getContext('2d');
+  function resize(){ const dpr=Math.min(devicePixelRatio||1,2); canvas.width = Math.floor(canvas.clientWidth*dpr); canvas.height = Math.floor(canvas.clientHeight*dpr); draw(); }
+  window.addEventListener('resize', resize); resize();
+  $('#orbitGenerate').onclick = ()=> {
+    const raw = $('#orbitSeed').value.trim(); if(!raw) return alert('Type ideas - one per line'); const lines = raw.split('\n').map(s=>s.trim()).filter(Boolean);
+    orbitNodes = lines.map((t,i)=>({ title:t, ang:(i/lines.length)*Math.PI*2, r: 110 + i*12 }));
+    $('#orbitList').innerHTML=''; orbitNodes.forEach(n=>{ const d=document.createElement('div'); d.className='compact'; d.innerHTML=`<strong>${n.title}</strong>`; $('#orbitList').appendChild(d); saveToVault({title:n.title, desc:'Orbit node'}); });
+    draw();
+  };
+  function draw(t=0){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const cx=canvas.width/2, cy=canvas.height/2;
+    // Earth
+    ctx.beginPath(); ctx.fillStyle='#05203a'; ctx.arc(cx,cy,60,0,Math.PI*2); ctx.fill();
+    // orbit nodes
+    orbitNodes.forEach((n,i)=>{ const ang = n.ang + t*0.0004*(1+i*0.02); const x=cx+Math.cos(ang)*(n.r), y=cy+Math.sin(ang)*(n.r); ctx.beginPath(); ctx.fillStyle='rgba(0,200,255,0.18)'; ctx.arc(x,y,12,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#fff'; ctx.font='12px sans-serif'; ctx.fillText(n.title, x+16, y+4); });
+    orbitRAF = requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+/* ---------- Orbit Lab ---------- */
+let labObjects = [];
+function startLab(){
+  const c = $('#labCanvas'); const ctx = c.getContext('2d');
+  function resize(){ const dpr=Math.min(devicePixelRatio||1,2); c.width = Math.floor(c.clientWidth*dpr); c.height = Math.floor(c.clientHeight*dpr); draw(); }
+  window.addEventListener('resize', resize); resize();
+  $('#placeLab').onclick = ()=> { const type = $('#labType').value; const id='o'+Math.floor(Math.random()*90000); labObjects.push({id,type,theta:Math.random()*Math.PI*2,r:120+Math.random()*80}); renderLabList(); };
+  $('#clearLab').onclick = ()=> { labObjects=[]; renderLabList(); draw(); };
+  function draw(t=0){ ctx.clearRect(0,0,c.width,c.height); const cx=c.width/2, cy=c.height/2; ctx.beginPath(); ctx.fillStyle='#031a28'; ctx.arc(cx,cy,60,0,Math.PI*2); ctx.fill(); for(let i=0;i<5;i++){ ctx.beginPath(); ctx.strokeStyle='rgba(255,255,255,0.03)'; ctx.lineWidth=1; ctx.arc(cx,cy,100+i*30,0,Math.PI*2); ctx.stroke(); } labObjects.forEach((o,i)=>{ const ang = o.theta + t*0.0006*(i%3+1); const x=cx+Math.cos(ang)*o.r, y=cy+Math.sin(ang)*o.r; ctx.beginPath(); ctx.fillStyle = o.type==='sat' ? 'rgba(0,200,255,0.9)' : 'rgba(255,120,120,0.9)'; ctx.arc(x,y,6,0,Math.PI*2); ctx.fill(); }); requestAnimationFrame(draw); }
+  function renderLabList(){ const out = $('#labList'); out.innerHTML=''; labObjects.forEach(o=>{ const d=document.createElement('div'); d.className='compact'; d.innerHTML=`<strong>${o.type.toUpperCase()}</strong> — ${o.id}`; const rem=document.createElement('button'); rem.className='btn ghost'; rem.innerText='Remove'; rem.onclick=()=>{ labObjects=labObjects.filter(x=>x.id!==o.id); renderLabList(); }; d.appendChild(rem); out.appendChild(d); }); }
+  renderLabList();
+}
+
+/* ---------- Startup Kit ---------- */
+$('#startupEval').addEventListener('click', ()=> {
+  const name = $('#startupName').value.trim(), market = parseFloat($('#startupMarket').value) || 0;
+  if(!name) return alert('Enter a name'); const rev = (market*0.01).toFixed(0); $('#startupOut').innerHTML = `<div class="compact"><strong>${name}</strong><div class="small">Estimated TAM-derived revenue (year 1): $${rev}</div></div>`; saveToVault({title:`Startup: ${name}`, desc:`Market ${market} est rev ${rev}`}); renderVaultPreview();
+});
+
+/* ---------- Files Summarizer ---------- */
+$('#loadFileBtn').addEventListener('click', async ()=> {
+  const f = $('#fileInput').files[0]; if(!f) return alert('Choose a file'); const txt = await f.text(); $('#fileArea').value = txt;
+});
+$('#pasteBtn').addEventListener('click', ()=> { const t = prompt('Paste text here'); if(t) $('#fileArea').value = t; });
+$('#summBtn').addEventListener('click', ()=> {
+  const txt = $('#fileArea').value.trim(); if(!txt || txt.length<20) return alert('Enter more text');
+  if(API_BASE && $('#aiMode').value!=='offline_only'){ fetch(API_BASE + '/api/summarize', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text: txt }) }).then(r=>r.json()).then(j=> { $('#summaryOut').innerHTML = `<div class="compact"><strong>Summary (online)</strong><div class="small">${escapeHtml(j.summary||j.reply||'')}</div></div>`; }).catch(()=> { $('#summaryOut').innerHTML = `<div class="compact"><strong>Summary (offline)</strong><div class="small">${escapeHtml(localSumm(txt))}</div></div>`; }); }
+  else { $('#summaryOut').innerHTML = `<div class="compact"><strong>Summary (offline)</strong><div class="small">${escapeHtml(localSumm(txt))}</div></div>`; }
+});
+function localSumm(txt){
+  const sents = txt.match(/[^\.!\?]+[\.!\?]+/g) || [txt];
+  const words = txt.toLowerCase().replace(/[^a-z0-9\s]/g,'').split(/\s+/).filter(Boolean);
+  const freq = {}; words.forEach(w=>{ if(w.length>3) freq[w]=(freq[w]||0)+1; });
+  const top = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>x[0]);
+  const scored = sents.map(s=>{ const ws=s.toLowerCase().split(/\s+/); let sc=0; top.forEach(t=>{ if(ws.includes(t)) sc++; }); return {s,sc}; });
+  scored.sort((a,b)=>b.sc-a.sc); return scored.slice(0,3).map(x=>x.s.trim()).join(' ');
+}
+
+/* ---------- Profile ---------- */
+$('#genAvatar').addEventListener('click', ()=> {
+  const n = $('#pname').value.trim() || (JSON.parse(localStorage.getItem('es_user')||'{}').name || 'E'); const initials = n.split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase(); $('#avatarBox').style.backgroundImage='none'; $('#avatarBox').textContent = initials; saveProfile({initials}); });
+$('#avatarFile').addEventListener('change', (e)=> { const f = e.target.files[0]; if(!f) return; const r = new FileReader(); r.onload = ()=> { $('#avatarBox').style.backgroundImage = `url(${r.result})`; $('#avatarBox').textContent=''; saveProfile({avatar:r.result}); }; r.readAsDataURL(f); });
+$('#saveProfile').addEventListener('click', ()=> { const n=$('#pname').value.trim(), m=$('#pmail').value.trim(); if(!n||!m) return alert('Fill name & email'); saveProfile({name:n,email:m}); alert('Saved'); });
+function saveProfile(obj){ const p = JSON.parse(localStorage.getItem('es_profile')||'{}'); Object.assign(p,obj); localStorage.setItem('es_profile', JSON.stringify(p)); }
+(function loadProfile(){ const p = JSON.parse(localStorage.getItem('es_profile')||'{}'); if(p.name){ $('#pname').value=p.name; $('#pmail').value=p.email||''; if(p.avatar){ $('#avatarBox').style.backgroundImage=`url(${p.avatar})`; $('#avatarBox').textContent=''; } else if(p.initials) $('#avatarBox').textContent=p.initials; }})();
+
+/* ---------- Streak chart ---------- */
+function updateChart(){
+  const c = $('#streakChart'); const ctx = c.getContext('2d'); const dpr = devicePixelRatio||1; c.width = c.clientWidth*dpr; c.height = c.clientHeight*dpr;
+  const data = JSON.parse(localStorage.getItem('es_sessions')||'{}'); const labels=[], vals=[];
+  for(let i=7;i>=0;i--){ const k = new Date(Date.now()-i*86400000).toISOString().slice(0,10); labels.push(k.slice(5)); vals.push(Math.round((data[k]||0)/1)); }
+  ctx.clearRect(0,0,c.width,c.height); const pad=16, W=c.width-2*pad, H=c.height-2*pad; const max=Math.max(1,...vals); const bw=(W/vals.length)-8;
+  vals.forEach((v,i)=>{ const x=pad + i*(bw+8); const h = Math.round((H)*(v/max)); ctx.fillStyle='rgba(0,200,255,0.12)'; ctx.fillRect(x, c.height-pad-h, bw, h); ctx.fillStyle='rgba(0,200,255,0.9)'; ctx.fillRect(x, c.height-pad-h, bw, 3); ctx.fillStyle='rgba(255,255,255,0.6)'; ctx.font=`${11*dpr}px sans-serif`; ctx.fillText(labels[i], x+2, c.height-4); });
+}
+function startSessionTick(){ if(!localStorage.getItem('es_sessions')) localStorage.setItem('es_sessions', JSON.stringify({})); tick(); }
+function tick(){ const key = new Date().toISOString().slice(0,10); const s = JSON.parse(localStorage.getItem('es_sessions')||'{}'); s[key] = (s[key]||0)+1; localStorage.setItem('es_sessions', JSON.stringify(s)); updateChart(); setTimeout(tick,60000); }
+
+/* ---------- Events, startup ---------- */
+(function boot(){
+  $('#themeSel').addEventListener('change', ()=> { const v = $('#themeSel').value; if(v==='galaxy') document.body.style.background='linear-gradient(180deg,#020317,#001428)'; if(v==='dark') document.body.style.background='var(--bg-dark)'; if(v==='neon') document.body.style.background='#001428'; if(v==='light') document.body.style.background='var(--bg-light)'; });
+  $('#openSettings').addEventListener('click', ()=> openPage('pageSettings'));
+  document.getElementById('btnAI').addEventListener('click', ()=> openPage('pageAI'));
+  // quick bindings for vault/export
+  $('#exportAll').addEventListener('click', ()=> { const all = {profile: localStorage.getItem('es_profile'), vault: localStorage.getItem('es_vault')}; download('echosphere-export.json', JSON.stringify(all)); });
+  $('#clearData').addEventListener('click', ()=> { if(confirm('Clear all local data?')) localStorage.clear(); location.reload(); });
+  // send button binding already set earlier
+  initVault(); buildRadialHub(); renderVaultPreview();
+  // quick open via buttons at left already wired
+})();
+function pushEvent(e){ const log = JSON.parse(localStorage.getItem('es_events')||'[]'); log.push({t:Date.now(), e}); localStorage.setItem('es_events', JSON.stringify(log)); }
+
+/* ---------- small util: open / close pages via escape ---------- */
+document.addEventListener('keydown', e=> { if(e.key==='Escape') $$('.page').forEach(p=> p.classList.add('hidden')); });
+
+</script>
+</body>
+</html>
